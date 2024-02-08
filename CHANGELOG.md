@@ -1,3 +1,9 @@
+# 0.12.3
+
+ * Uses org.apache.kafka.metadata.authorizer.StandardAuthorizer
+   in KRaft mode
+ * Speedup Kafka trunk build
+
 # 0.12.2
 
  * `python3 -m trivup.clusters.KafkaCluster ..` now exits with the

@@ -39,7 +39,8 @@ function kafka_build {
 
     if [[ $CLEAN_BUILD == y || ! -d .gradle ]]; then
 	echo "### $0: Running gradle"
-	gradle >> $LOGFILE
+    # Compile only
+	./gradlew jar --info -x test -x checkstyleMain -x checkstyleTest -x spotbugsMain -xspotbugsTest >> $LOGFILE
     fi
 
     # refresh gradle and do clean before rebuilding

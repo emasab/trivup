@@ -1,3 +1,9 @@
+# 0.12.4
+
+ * Allow to test any GitHub Kafka branch, when version isn't a regural release.
+ * Add PLAIN inter broker authentication to enable KRaft StandardAuthorizer
+   with a default 'admin' super user.
+
 # 0.12.3
 
  * Uses org.apache.kafka.metadata.authorizer.StandardAuthorizer

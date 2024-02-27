@@ -48,9 +48,10 @@ class KafkaBrokerApp (trivup.App):
         @param on          Node name to run on
 
         Supported conf keys:
-           * version - Kafka version to use, will build 'trunk' from
-                       kafka_path, otherwise the version is taken to be a
-                       formal release which will be downloaded and deployed.
+           * version - Kafka version to use, will build any non-numeric
+                       version from kafka_path, otherwise the version is taken
+                       to be a formal release which will be downloaded
+                       and deployed.
            * listeners - CSV list of listener types:
                          PLAINTEXT,SSL,SASL,SASL_SSL
            * listener_host - alternative listener host instead of
@@ -80,11 +81,13 @@ class KafkaBrokerApp (trivup.App):
         if self.conf['version'] == 'master':
             self.conf['version'] = 'trunk'
 
-        if self.conf['version'] == 'trunk':
-            self.version = [9, 9, 9]
-        else:
+        self.numeric_version = True
+        try:
             self.version = [int(x) for x in
-                            self.conf['version'].split('.')][:3]
+                self.conf['version'].split('.')][:3]
+        except ValueError as e:
+            self.numeric_version = False
+            self.version = [9, 9, 9]
 
         self.zk = cluster.find_app('ZookeeperApp')
         if self.zk is None:
@@ -145,7 +148,9 @@ class KafkaBrokerApp (trivup.App):
         # SASL support
         sasl_mechs = [x for x in self.conf.get('sasl_mechanisms', '').
                       replace(' ', '').split(',') if len(x) > 0]
-        if len(sasl_mechs) > 0:
+        if 'PLAIN' not in sasl_mechs:
+            sasl_mechs.append('PLAIN')
+        if 'SASL_PLAINTEXT' not in listener_types:
             listener_types.append('SASL_PLAINTEXT')
 
         # SSL support
@@ -160,14 +165,14 @@ class KafkaBrokerApp (trivup.App):
             'PLAINTEXT:PLAINTEXT,SSL:SSL,SASL_PLAINTEXT:' + \
             'SASL_PLAINTEXT,SASL_SSL:SASL_SSL'
 
-        can_docker = self.conf['version'] == 'trunk' or \
+        can_docker = self.numeric_version is False or \
             int(self.conf['version'].split('.')[0]) > 0
         if can_docker:
             # Map DOCKER listener to PLAINTEXT security protocol
             listener_map += ',DOCKER:PLAINTEXT'
 
         if self.kraft:
-            listener_map += ',CONTROLLER:PLAINTEXT'
+            listener_map += ',CONTROLLER:SASL_PLAINTEXT'
 
         conf_blob.append(listener_map)
 
@@ -237,6 +242,10 @@ class KafkaBrokerApp (trivup.App):
                     continue
 
                 sasl_users = self.conf.get('sasl_users', '')
+                if sasl_users.find("admin=") < 0:
+                    if len(sasl_users) > 0:
+                        sasl_users += ','
+                    sasl_users += 'admin=admin'
                 if len(sasl_users) == 0:
                     self.log(('WARNING: No sasl_users configured for %s, '
                               'expected CSV of user=pass,..') % plugin)
@@ -244,6 +253,8 @@ class KafkaBrokerApp (trivup.App):
                     jaas_blob.append(('org.apache.kafka.common.security.'
                                       '%sLoginModule required debug=true') %
                                      plugin)
+                    jaas_blob.append('  username="admin"')
+                    jaas_blob.append('  password="admin"')
                     for up in sasl_users.split(','):
                         u, p = up.split('=')
                         if plugin == 'plain.Plain':
@@ -278,8 +289,6 @@ class KafkaBrokerApp (trivup.App):
                     # hostname ("admin" rather than "admin/localhost")
                     # to a local user.
                     # This is not compatible with "admin/localhost" principals.
-                    self._add_simple_authorizer(conf_blob)
-                    conf_blob.append('allow.everyone.if.no.acl.found=true')
                     conf_blob.append('sasl.kerberos.principal.to.local.rules=RULE:[1:admin](.*)s/^.*/admin/')  # noqa: E501
 
                 assert kdc is not None, \
@@ -305,8 +314,6 @@ class KafkaBrokerApp (trivup.App):
                     conf_blob.append('listener.name.sasl_plaintext.oauthbearer.sasl.oauthbearer.scope.claim.name=scp')
                     conf_blob.append('listener.name.sasl_plaintext.oauthbearer.sasl.jaas.config=org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required unsecuredLoginStringClaim_sub="unused";')
                     conf_blob.append('listener.name.sasl_plaintext.oauthbearer.sasl.oauthbearer.expected.audience=api://default')
-                    conf_blob.append('security.inter.broker.protocol=PLAINTEXT')
-                    conf_blob.append('sasl.enabled.mechanisms=OAUTHBEARER')
                 else:
                     # Use the unsecure JSON web token.
                     # Client should be configured with
@@ -314,9 +321,6 @@ class KafkaBrokerApp (trivup.App):
                     # admin'
                     # Change requiredScope to something else to trigger auth
                     # error.
-                    conf_blob.append('super.users=User:admin')
-                    conf_blob.append('allow.everyone.if.no.acl.found=true')
-                    self._add_simple_authorizer(conf_blob)
                     jaas_blob.append('org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required')  # noqa: E501
                     jaas_blob.append('  unsecuredLoginLifetimeSeconds="3600"')
                     jaas_blob.append('  unsecuredLoginStringClaim_sub="admin"')
@@ -423,7 +427,7 @@ class KafkaBrokerApp (trivup.App):
 
     def deploy(self):
         destdir = os.path.join(self.cluster.mkpath(self.__class__.__name__),
-                               'kafka', self.get('version'))
+                               'kafka', self.get('version').replace('/','_'))
         self.dbg('Deploy %s version %s on %s to %s' %
                  (self.name, self.get('version'), self.node.name, destdir))
         deploy_exec = self.resource_path('deploy.sh')
@@ -431,9 +435,17 @@ class KafkaBrokerApp (trivup.App):
             raise NotImplementedError('Kafka deploy.sh script missing in %s' %
                                       deploy_exec)
         t_start = time.time()
-        cmd = '%s %s "%s" "%s"' % \
-              (deploy_exec, self.get('version'),
-               self.get('kafka_path', destdir), destdir)
+        version = self.get('version').split('/')
+        owner = ""
+        if len(version) > 1:
+            owner = version[0]
+            version = version[1]
+        else:
+            version = version[0]
+
+        cmd = '%s %s "%s" "%s" "%s"' % \
+              (deploy_exec, version,
+               self.get('kafka_path', destdir), destdir, owner)
         self.dbg('Deploy command: {}'.format(cmd))
         r = os.system(cmd)
         if r != 0:

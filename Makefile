@@ -3,6 +3,8 @@ all:
 	@echo " bootstrap-ubuntu  - install required packages on Ubuntu/Debian (might need to be called thru sudo)"
 	@echo " bootstrap-ubuntu-full - same as bootstrap-ubuntu but also includes docker (for Schema-Registry) and krb5-kdc (for Kerberos authentication)"
 
+sdist:
+	python -m build . --sdist
 
 bootstrap-ubuntu-common:
 	apt install -y curl openssl default-jre netcat

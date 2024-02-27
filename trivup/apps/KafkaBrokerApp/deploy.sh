@@ -18,6 +18,7 @@ set -e
 VERSION=$1
 KAFKA_DIR=$2
 DEST_DIR=$3
+OWNER=${4:-apache}
 
 
 [[ ! -z "$DEST_DIR" ]] || (echo "Usage: $0 VERSION KAFKA_GIT_DIR_OR_EMPTY_STR DEST_DIR" ; exit 1)
@@ -58,30 +59,10 @@ function kafka_build {
 
 function kafka_git_clone {
     echo "### $0: Git cloning kafka to $KAFKA_DIR"
-    git clone https://github.com/apache/kafka.git "$KAFKA_DIR"
+    git clone https://github.com/$OWNER/kafka.git "$KAFKA_DIR"
 }
 
-
-if [[ $VERSION == 'trunk' ]]; then
-    if [[ ! -f "$KAFKA_DIR/README.md" ]]; then
-	kafka_git_clone
-        kafka_build
-
-    else
-        echo "### $0: Kafka source directory $KAFKA_DIR exists: assuming Kafka is built"
-    fi
-
-    if [[ ! -d $DEST_DIR ]]; then
-        mkdir -p $(dirname "$DEST_DIR")
-    fi
-
-    # Create a link from DEST_DIR to git tree
-    ln -sf "$KAFKA_DIR" "$DEST_DIR"
-
-    echo "### $0: Deployed Kafka $VERSION to $DEST_DIR (symlink to $KAFKA_DIR)"
-
-else
-
+if [[ $VERSION =~ [1-9][0-9]*\.[0-9]+\.[0-9]+ ]]; then
     if [[ ! -f "$DEST_DIR/bin/kafka-server-start.sh" ]]; then
 	# Download and install tarball
 	mkdir -p "$DEST_DIR"
@@ -104,4 +85,21 @@ else
     else
 	echo "# $VERSION already installed in $DEST_DIR" >> $LOGFILE
     fi
+else
+    if [[ ! -f "$KAFKA_DIR/README.md" ]]; then
+	kafka_git_clone
+    kafka_build
+
+    else
+        echo "### $0: Kafka source directory $KAFKA_DIR exists: assuming Kafka is built"
+    fi
+
+    if [[ ! -d $DEST_DIR ]]; then
+        mkdir -p $(dirname "$DEST_DIR")
+    fi
+
+    # Create a link from DEST_DIR to git tree
+    ln -sf "$KAFKA_DIR" "$DEST_DIR"
+
+    echo "### $0: Deployed Kafka $VERSION to $DEST_DIR (symlink to $KAFKA_DIR)"
 fi

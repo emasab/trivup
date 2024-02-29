@@ -470,9 +470,12 @@ class KafkaBrokerApp (trivup.App):
 
     def _add_simple_authorizer(self, conf_blob):
         if self.kraft:
-            conf_blob.append(
-                'authorizer.class.name=' +
-                'org.apache.kafka.metadata.authorizer.StandardAuthorizer')
+            # Version 3.2.0 introduces KRaft authorizer
+            if self.version >= [3, 2, 0]:
+                conf_blob.append(
+                    'authorizer.class.name=' +
+                    'org.apache.kafka.metadata.authorizer.StandardAuthorizer')
+            # AclAuthorizer needs Zookeeper, cannot use it
         elif self.version[0] >= 3:
             # Kafka removed SimpleAclAuthorizer class in v3.0.0
             # https://github.com/apache/kafka/commit/976e78e405d57943b989ac487b7f49119b0f4af4#diff-e0ccf1b5c964d2c303b6a69a8b8b67df5a6bfbae8aa514f580d353c4c6bf8e36

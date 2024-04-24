@@ -1,3 +1,7 @@
+# 0.12.5
+
+ * Allow to start a Kafka cluster with Apache Kafka trunk
+
 # 0.12.4
 
  * Allow to test any GitHub Kafka branch, when version isn't a regural release.

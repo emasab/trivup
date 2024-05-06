@@ -19,6 +19,7 @@ VERSION=$1
 KAFKA_DIR=$2
 DEST_DIR=$3
 OWNER=${4:-apache}
+COMMIT=$5
 
 
 [[ ! -z "$DEST_DIR" ]] || (echo "Usage: $0 VERSION KAFKA_GIT_DIR_OR_EMPTY_STR DEST_DIR" ; exit 1)
@@ -35,8 +36,13 @@ function kafka_build {
     pushd $KAFKA_DIR >> $LOGFILE
     [[ $CLEAN_BUILD == y ]] && git checkout gradlew gradlew.bat >> $LOGFILE
 
-    echo "### $0: Checking out $VERSION"
-    git checkout $VERSION >> $LOGFILE
+    if [ ! -z "$COMMIT" ]; then
+        echo "### $0: Checking out commit $COMMIT"
+        git checkout "$COMMIT"
+    else
+        echo "### $0: Checking out branch $VERSION"
+        git checkout $VERSION >> $LOGFILE
+    fi
 
     if [[ $CLEAN_BUILD == y || ! -d .gradle ]]; then
 	echo "### $0: Running gradle"
@@ -58,8 +64,8 @@ function kafka_build {
 }
 
 function kafka_git_clone {
-    echo "### $0: Git cloning kafka to $KAFKA_DIR"
-    git clone https://github.com/$OWNER/kafka.git "$KAFKA_DIR"
+    echo "### $0: Git cloning \"$OWNER\" kafka, \"$VERSION\" branch, to \"$KAFKA_DIR\""
+    git clone --branch "$VERSION" --single-branch https://github.com/$OWNER/kafka.git "$KAFKA_DIR"
 }
 
 if [[ $VERSION =~ [1-9][0-9]*\.[0-9]+\.[0-9]+ ]]; then

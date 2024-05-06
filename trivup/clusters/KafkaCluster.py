@@ -106,10 +106,11 @@ class KafkaCluster(object):
             self.conf.update(conf)
 
         self.version = self.conf.get('version')
-        if self.version == "trunk":
-            self.version_num = [9, 9, 9]
-        else:
+        try:
             self.version_num = [int(x) for x in self.version.split('.')][:3]
+        except ValueError:
+            self.version_num = [9, 9, 9]
+
         self.kraft = self.conf.get('kraft')
 
         # Create trivup Cluster

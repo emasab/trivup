@@ -84,8 +84,8 @@ class KafkaBrokerApp (trivup.App):
         self.numeric_version = True
         try:
             self.version = [int(x) for x in
-                self.conf['version'].split('.')][:3]
-        except ValueError as e:
+                            self.conf['version'].split('.')][:3]
+        except ValueError:
             self.numeric_version = False
             self.version = [9, 9, 9]
 
@@ -307,13 +307,13 @@ class KafkaBrokerApp (trivup.App):
             if 'OAUTHBEARER' in sasl_mechs:
                 oidcapp = self.cluster.find_app(OauthbearerOIDCApp)
                 if oidcapp is not None:
-                    assert self.version >= [3, 1, 0], "OIDC requires Apache Kafka 3.1 or later"
+                    assert self.version >= [3, 1, 0], "OIDC requires Apache Kafka 3.1 or later"  # noqa: E501
                     # Use the OIDC method.
-                    conf_blob.append('listener.name.sasl_plaintext.oauthbearer.sasl.server.callback.handler.class=org.apache.kafka.common.security.oauthbearer.secured.OAuthBearerValidatorCallbackHandler')
-                    conf_blob.append('listener.name.sasl_plaintext.oauthbearer.sasl.oauthbearer.jwks.endpoint.url=%s' % oidcapp.conf['jwks_url'])
-                    conf_blob.append('listener.name.sasl_plaintext.oauthbearer.sasl.oauthbearer.scope.claim.name=scp')
-                    conf_blob.append('listener.name.sasl_plaintext.oauthbearer.sasl.jaas.config=org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required unsecuredLoginStringClaim_sub="unused";')
-                    conf_blob.append('listener.name.sasl_plaintext.oauthbearer.sasl.oauthbearer.expected.audience=api://default')
+                    conf_blob.append('listener.name.sasl_plaintext.oauthbearer.sasl.server.callback.handler.class=org.apache.kafka.common.security.oauthbearer.secured.OAuthBearerValidatorCallbackHandler')  # noqa: E501
+                    conf_blob.append('listener.name.sasl_plaintext.oauthbearer.sasl.oauthbearer.jwks.endpoint.url=%s' % oidcapp.conf['jwks_url'])  # noqa: E501
+                    conf_blob.append('listener.name.sasl_plaintext.oauthbearer.sasl.oauthbearer.scope.claim.name=scp')  # noqa: E501
+                    conf_blob.append('listener.name.sasl_plaintext.oauthbearer.sasl.jaas.config=org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required unsecuredLoginStringClaim_sub="unused";')  # noqa: E501
+                    conf_blob.append('listener.name.sasl_plaintext.oauthbearer.sasl.oauthbearer.expected.audience=api://default')  # noqa: E501
                 else:
                     # Use the unsecure JSON web token.
                     # Client should be configured with
@@ -427,7 +427,7 @@ class KafkaBrokerApp (trivup.App):
 
     def deploy(self):
         destdir = os.path.join(self.cluster.mkpath(self.__class__.__name__),
-                               'kafka', self.get('version').replace('/','_'))
+                               'kafka', self.get('version').replace('/', '_'))
         self.dbg('Deploy %s version %s on %s to %s' %
                  (self.name, self.get('version'), self.node.name, destdir))
         deploy_exec = self.resource_path('deploy.sh')
@@ -443,9 +443,17 @@ class KafkaBrokerApp (trivup.App):
         else:
             version = version[0]
 
-        cmd = '%s %s "%s" "%s" "%s"' % \
+        version = version.split('@')
+        commit = ""
+        if len(version) > 1:
+            commit = version[1]
+            version = version[0]
+        else:
+            version = version[0]
+
+        cmd = '%s %s "%s" "%s" "%s" "%s"' % \
               (deploy_exec, version,
-               self.get('kafka_path', destdir), destdir, owner)
+               self.get('kafka_path', destdir), destdir, owner, commit)
         self.dbg('Deploy command: {}'.format(cmd))
         r = os.system(cmd)
         if r != 0:

@@ -1,3 +1,7 @@
+# 0.12.6
+
+ * Allow to start a Kafka cluster with a specific commit of a given branch
+
 # 0.12.5
 
  * Allow to start a Kafka cluster with Apache Kafka trunk

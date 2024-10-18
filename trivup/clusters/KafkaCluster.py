@@ -64,6 +64,7 @@ import sys
 import argparse
 import subprocess
 import copy
+import json
 
 
 class KafkaCluster(object):
@@ -105,7 +106,10 @@ class KafkaCluster(object):
             self.conf.update(conf)
 
         self.version = self.conf.get('version')
-        self.version_num = [int(x) for x in self.version.split('.')][:3]
+        if self.version == "trunk":
+            self.version_num = [9, 9, 9]
+        else:
+            self.version_num = [int(x) for x in self.version.split('.')][:3]
         self.kraft = self.conf.get('kraft')
 
         # Create trivup Cluster
@@ -126,7 +130,8 @@ class KafkaCluster(object):
             if not self.sasl_mechanism:
                 self.sasl_mechanism = 'OAUTHBEARER'
             elif self.sasl_mechanism.upper() != 'OAUTHBEARER':
-                raise RuntimeError(f"OIDC requires sasl.mechanism OAUTHBEARER, not '{self.sasl_mechanism}'")
+                raise RuntimeError('OIDC requires sasl.mechanism OAUTHBEARER,'
+                                   f' not \'{self.sasl_mechanism}\'')
         else:
             self.oidc = None
 
@@ -176,10 +181,10 @@ class KafkaCluster(object):
             if self.version_num >= [2, 4, 0]:
                 # Configure rack & replica selector if broker supports
                 # fetch-from-follower
-                bconf.update(
-                    { 'conf': [
-                        'broker.rack=RACK${appid}',
-                        'replica.selector.class=org.apache.kafka.common.replica.RackAwareReplicaSelector']})  # noqa: E501
+                bconf['conf'] += [
+                    'broker.rack=RACK${appid}',
+                    'replica.selector.class='
+                    'org.apache.kafka.common.replica.RackAwareReplicaSelector']
 
             broker = KafkaBrokerApp(self.cluster, bconf)
             self.brokers[broker.appid] = broker
@@ -260,7 +265,8 @@ class KafkaCluster(object):
                     self._client_conf['sasl.oauthbearer.client.secret'] = 'abc'
                     self._client_conf['sasl.oauthbearer.scope'] = 'test'
                     self._client_conf['sasl.oauthbearer.extensions'] = \
-                        'ExtensionworkloadIdentity=develC348S,Extensioncluster=lkc123'
+                        ('ExtensionworkloadIdentity=develC348S,'
+                         'Extensioncluster=lkc123')
                 else:
                     self._client_conf['enable.sasl.oauthbearer.unsecure.jwt'] = True  # noqa: E501
                     self._client_conf['sasl.oauthbearer.config'] = \
@@ -482,7 +488,8 @@ if __name__ == '__main__':
                         help='Confluent Platform version (for Schema-Registry)')  # noqa: E501
     parser.add_argument('--no-cleanup', dest='no_cleanup', action='store_true',
                         default=False,
-                        help='Don\'t clean up logs, etc, after cluster is destroyed')
+                        help='Don\'t clean up logs, etc, after'
+                        ' cluster is destroyed')
     parser.add_argument('--cmd', type=str, dest='cmd', default=None,
                         help='Command to execute instead of interactive shell')
     parser.add_argument('--kafka-src', dest='kafka_src', type=str,
@@ -494,6 +501,9 @@ if __name__ == '__main__':
                         action='store_true',
                         default=KafkaCluster.default_conf['oidc'],
                         help='Enable Oauthbearer OIDC JWT server')
+    parser.add_argument('--conf', dest='broker_conf',  type=str,
+                        default='',
+                        help='Broker configuration')
 
     args = parser.parse_args()
 
@@ -507,7 +517,9 @@ if __name__ == '__main__':
             'broker_cnt': args.broker_cnt,
             'kafka_path': args.kafka_src,
             'cleanup': not args.no_cleanup,
-            'oidc': args.oidc}
+            'oidc': args.oidc,
+            'broker_conf': args.broker_conf and
+            json.loads(args.broker_conf) or []}
 
     kc = KafkaCluster(**conf)
 

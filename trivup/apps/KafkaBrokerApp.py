@@ -410,10 +410,12 @@ class KafkaBrokerApp (trivup.App):
 
         # Find all controllers (all KafkaBrokerApps for now) and construct
         # a list of broker_id@host:port.
-        controllers = [
-            '{}@{}'.format(
-                x.appid, x.conf['controller_listener'].split('://')[-1])
-            for x in self.cluster.find_apps(self.__class__)]
+        controllers = []
+        for x in self.cluster.find_apps(self.__class__):
+            controller_listener = x.conf['controller_listener'].split('://')[-1]
+            controller_listener_port = controller_listener.split(':')[1]
+            controller_listener = f'localhost:{controller_listener_port}'
+            controllers.append('{}@{}'.format(x.appid, controller_listener))
 
         self.dbg('KRaft: controllers: {}'.format(controllers))
         with open(self.conf['conf_file'], 'a') as f:

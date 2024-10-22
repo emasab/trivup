@@ -199,8 +199,18 @@ class KafkaBrokerApp (trivup.App):
         self.conf['address'] = '%s:%d' % (listener_host, self.conf['port'])
         # Create a listener for each port
         listeners = ['%s://%s:%d' % (x[0], "0.0.0.0", x[1]) for x in ports]
+        controller_listener = [x[1] for x in ports if x[0] == 'CONTROLLER']
+        controller_port = None
+        # must be routable when not in advertised.listeners
+        # and can't be set in advertised.listeners before 3.8
+        controller_host = 'localhost'
+        if len(controller_listener) > 0:
+            controller_port = controller_listener[0]
+
         if can_docker:
+            controller_host = cluster.get_docker_host()
             listeners.append('%s://%s:%d' % ('DOCKER', "0.0.0.0", docker_port))
+
         self.conf['listeners'] = ','.join(listeners)
         if 'advertised_hostname' not in self.conf:
             self.conf['advertised_hostname'] = self.conf['nodename']
@@ -212,6 +222,13 @@ class KafkaBrokerApp (trivup.App):
             advertised_listeners.append('DOCKER://%s' % docker_host)
             self.conf['docker_advertised_listeners'] = 'PLAINTEXT://%s' % \
                 docker_host
+        # Avoid using fallback to listener host, because it's not routable.
+        # Up to 3.8.0 it isn't possible to set this kind of advertised listener
+        # while later it's mandatory, unless using the fallback.
+        # See https://github.com/apache/kafka/pull/16464
+        if self.kraft and self.version > [3, 8, 0]:
+            advertised_listeners.append('CONTROLLER://%s:%d' %
+                                        (controller_host, controller_port))
         self.conf['advertised.listeners'] = ','.join(advertised_listeners)
         self.conf['advertised_listeners'] = self.conf['advertised.listeners']
         if self.kraft:

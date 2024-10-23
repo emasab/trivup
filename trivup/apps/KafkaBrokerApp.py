@@ -199,8 +199,18 @@ class KafkaBrokerApp (trivup.App):
         self.conf['address'] = '%s:%d' % (listener_host, self.conf['port'])
         # Create a listener for each port
         listeners = ['%s://%s:%d' % (x[0], "0.0.0.0", x[1]) for x in ports]
+        controller_listener = [x[1] for x in ports if x[0] == 'CONTROLLER']
+        controller_port = None
+        # must be routable when not in advertised.listeners
+        # and can't be set in advertised.listeners before 3.8
+        controller_host = 'localhost'
+        if len(controller_listener) > 0:
+            controller_port = controller_listener[0]
+
         if can_docker:
+            controller_host = cluster.get_docker_host()
             listeners.append('%s://%s:%d' % ('DOCKER', "0.0.0.0", docker_port))
+
         self.conf['listeners'] = ','.join(listeners)
         if 'advertised_hostname' not in self.conf:
             self.conf['advertised_hostname'] = self.conf['nodename']
@@ -212,6 +222,13 @@ class KafkaBrokerApp (trivup.App):
             advertised_listeners.append('DOCKER://%s' % docker_host)
             self.conf['docker_advertised_listeners'] = 'PLAINTEXT://%s' % \
                 docker_host
+        # Avoid using fallback to listener host, because it's not routable.
+        # Up to 3.8.0 it isn't possible to set this kind of advertised listener
+        # while later it's mandatory, unless using the fallback.
+        # See https://github.com/apache/kafka/pull/16464
+        if self.kraft and self.version > [3, 8, 0]:
+            advertised_listeners.append('CONTROLLER://%s:%d' %
+                                        (controller_host, controller_port))
         self.conf['advertised.listeners'] = ','.join(advertised_listeners)
         self.conf['advertised_listeners'] = self.conf['advertised.listeners']
         if self.kraft:
@@ -410,10 +427,13 @@ class KafkaBrokerApp (trivup.App):
 
         # Find all controllers (all KafkaBrokerApps for now) and construct
         # a list of broker_id@host:port.
-        controllers = [
-            '{}@{}'.format(
-                x.appid, x.conf['controller_listener'].split('://')[-1])
-            for x in self.cluster.find_apps(self.__class__)]
+        controllers = []
+        for x in self.cluster.find_apps(self.__class__):
+            controller_listener = \
+                x.conf['controller_listener'].split('://')[-1]
+            controller_listener_port = controller_listener.split(':')[1]
+            controller_listener = f'localhost:{controller_listener_port}'
+            controllers.append('{}@{}'.format(x.appid, controller_listener))
 
         self.dbg('KRaft: controllers: {}'.format(controllers))
         with open(self.conf['conf_file'], 'a') as f:
@@ -430,51 +450,51 @@ class KafkaBrokerApp (trivup.App):
                                'kafka', self.get('version').replace('/', '_'))
         self.dbg('Deploy %s version %s on %s to %s' %
                  (self.name, self.get('version'), self.node.name, destdir))
-        deploy_exec = self.resource_path('deploy.sh')
-        if not os.path.exists(deploy_exec):
-            raise NotImplementedError('Kafka deploy.sh script missing in %s' %
-                                      deploy_exec)
-        t_start = time.time()
-        version = self.get('version').split('/')
-        owner = ""
-        if len(version) > 1:
-            owner = version[0]
-            version = version[1]
-        else:
-            version = version[0]
+        with self.resource_path('deploy.sh') as deploy_exec:
+            if not os.path.exists(deploy_exec):
+                raise NotImplementedError('Kafka deploy.sh script ' +
+                                          'missing in %s' % deploy_exec)
+            t_start = time.time()
+            version = self.get('version').split('/')
+            owner = ""
+            if len(version) > 1:
+                owner = version[0]
+                version = version[1]
+            else:
+                version = version[0]
 
-        version = version.split('@')
-        commit = ""
-        if len(version) > 1:
-            commit = version[1]
-            version = version[0]
-        else:
-            version = version[0]
+            version = version.split('@')
+            commit = ""
+            if len(version) > 1:
+                commit = version[1]
+                version = version[0]
+            else:
+                version = version[0]
 
-        cmd = '%s %s "%s" "%s" "%s" "%s"' % \
-              (deploy_exec, version,
-               self.get('kafka_path', destdir), destdir, owner, commit)
-        self.dbg('Deploy command: {}'.format(cmd))
-        r = os.system(cmd)
-        if r != 0:
-            raise Exception('Deploy "%s" returned exit code %d' % (cmd, r))
-        self.dbg('Deployed version %s in %ds' %
-                 (self.get('version'), time.time() - t_start))
+            cmd = '%s %s "%s" "%s" "%s" "%s"' % \
+                (deploy_exec, version,
+                 self.get('kafka_path', destdir), destdir, owner, commit)
+            self.dbg('Deploy command: {}'.format(cmd))
+            r = os.system(cmd)
+            if r != 0:
+                raise Exception('Deploy "%s" returned exit code %d' % (cmd, r))
+            self.dbg('Deployed version %s in %ds' %
+                     (self.get('version'), time.time() - t_start))
 
-        self.conf['destdir'] = destdir
-        self.conf['bindir'] = os.path.join(self.conf['destdir'], 'bin')
+            self.conf['destdir'] = destdir
+            self.conf['bindir'] = os.path.join(self.conf['destdir'], 'bin')
 
-        if self.kraft:
-            self.kraft_setup()
+            if self.kraft:
+                self.kraft_setup()
 
-        # Override start command with updated path.
-        self.conf['start_cmd'] = '%s/bin/kafka-server-start.sh %s' % \
-                                 (destdir, self.conf['conf_file'])
-        self.dbg('Updated start_cmd to %s' % self.conf['start_cmd'])
-        # Add kafka-dir/bin to PATH so that the bundled tools are
-        # easily called.
-        self.env_add('PATH', os.environ.get('PATH') + ':' +
-                     os.path.join(destdir, 'bin'), append=False)
+            # Override start command with updated path.
+            self.conf['start_cmd'] = '%s/bin/kafka-server-start.sh %s' % \
+                                     (destdir, self.conf['conf_file'])
+            self.dbg('Updated start_cmd to %s' % self.conf['start_cmd'])
+            # Add kafka-dir/bin to PATH so that the bundled tools are
+            # easily called.
+            self.env_add('PATH', os.environ.get('PATH') + ':' +
+                         os.path.join(destdir, 'bin'), append=False)
 
     def _add_simple_authorizer(self, conf_blob):
         if self.kraft:

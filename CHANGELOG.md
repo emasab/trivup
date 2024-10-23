@@ -1,3 +1,9 @@
+# 0.12.7
+
+ * Use routable address localhost for controller.quorum.voters instead of
+0.0.0.0, that was causing an error on AK 3.8.0 startup
+ * Fix after removal of pkg_resources in Py 3.12
+
 # 0.12.6
 
  * Allow to start a Kafka cluster with a specific commit of a given branch

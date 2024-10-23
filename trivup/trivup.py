@@ -38,7 +38,7 @@ import subprocess
 import shutil
 import time
 import pkgutil
-import pkg_resources
+import importlib.resources
 import socket
 import resource
 import datetime
@@ -426,8 +426,10 @@ class App (object):
 
     def resource_path(self, relpath):
         """ @returns the full path to an application class resource file """
-        return pkg_resources.resource_filename('trivup',
-                                               os.path.join('apps', self.__class__.__name__, relpath))  # noqa: E501
+        return importlib.resources.as_file(
+            importlib.resources.files('trivup') / 'apps' /
+                self.__class__.__name__ / relpath  # noqa: E131
+        )
 
     def env_add(self, name, value, append=True):
         """ Add (overwrite or append) environment variable """

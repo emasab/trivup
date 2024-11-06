@@ -218,12 +218,17 @@ yes""" % d
             self.exec_cmd('openssl x509 -req -in "%s" -CA "%s" -CAkey "%s" -CAserial "%s" -out "%s"' %  # noqa: E501
                         (ret['req'], ret['intermediate_pub']['pem'], ret['intermediate_priv']['pem'],
                         self.ca['srl'], ret['pub']['pem']))
+            with open(ret['pub']['pem'], 'a') as f:
+                f.write(open(ret['intermediate_pub']['pem']).read())
+                f.write(open(self.ca['pem']).read())
         elif with_ca:
             self.dbg('Signing key for %s with CA cert' % (cn))
             self.exec_cmd('openssl x509 -req -passin "pass:%s" -in "%s" -CA "%s" -CAkey "%s" -CAserial "%s" -out "%s"' %  # noqa: E501
                         (password,
                         ret['req'], self.ca['pem'], self.ca['key'],
                         self.ca['srl'], ret['pub']['pem']))
+            with open(ret['pub']['pem'], 'a') as f:
+                f.write(open(self.ca['pem']).read())
         else:
             self.dbg('Signing key for %s with self' % (cn))
             self.exec_cmd('openssl x509 -req -passin "pass:%s" -in "%s" -signkey "%s" -out "%s"' %  # noqa: E501
@@ -238,8 +243,9 @@ yes""" % d
         self.exec_cmd('openssl rsa -outform der -passin "pass:%s" -in "%s" -out "%s"' %  # noqa: E501
                       (password, ret['priv']['pem'], ret['priv']['der']))
 
+        # Write pkcs12 keystore with private key, certificate and chain
         self._export_pkcs12(
-            ret, cn, through_intermediate=through_intermediate, with_ca=with_ca)
+            ret, cn)
 
         return ret
 
@@ -295,24 +301,15 @@ yes""" % d
 
         return ret
 
-    def _export_pkcs12(self, ret, cn, through_intermediate, with_ca):
+    def _export_pkcs12(self, ret, cn):
         password = self.conf.get('ssl_key_pass')
-        additional_certs_for_pkcs12 = []
-        if through_intermediate:
-            additional_certs_for_pkcs12.append(ret['intermediate_pub']['pem'])
-        if with_ca:
-            additional_certs_for_pkcs12.append(self.unused_ca['pem'])
-            additional_certs_for_pkcs12.append(self.ca['pem'])
-        certfile_arguments = ' '.join(
-            ['-certfile "{}"'.format(c) for c in additional_certs_for_pkcs12])
 
         self.dbg('Creating PKCS#12 for %s in %s' % (cn, ret['pkcs']))
-        self.exec_cmd('openssl pkcs12 -export -descert -out "%s" -inkey "%s" -in "%s"  %s -passin "pass:%s" -passout "pass:%s"' %  # noqa: E501
+        self.exec_cmd('openssl pkcs12 -export -descert -out "%s" -inkey "%s" -in "%s"  -passin "pass:%s" -passout "pass:%s"' %  # noqa: E501
                       (ret['pkcs'],
-                       ret['priv']['pem'],
-                       ret['pub']['pem'],
-                       certfile_arguments,
-                       password, password))
+                      ret['priv']['pem'],
+                      ret['pub']['pem'],
+                      password, password))
 
     def operational(self):
         return True

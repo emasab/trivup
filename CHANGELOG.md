@@ -1,3 +1,7 @@
+# 0.12.8
+
+ * Use an intermediate CA by default when enabling SSL.
+
 # 0.12.7
 
  * Use routable address localhost for controller.quorum.voters instead of

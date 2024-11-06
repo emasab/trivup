@@ -275,7 +275,7 @@ class KafkaCluster(object):
 
         # Client SSL configuration
         if self.ssl is not None:
-            key = self.ssl.create_cert('client')
+            key = self.ssl.create_cert('client', through_intermediate=True)
             self._client_conf['ssl.ca.location'] = self.ssl.ca['pem']
             self._client_conf['ssl.certificate.location'] = key['pub']['pem']
             self._client_conf['ssl.key.location'] = key['priv']['pem']

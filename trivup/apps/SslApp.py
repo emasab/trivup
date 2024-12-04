@@ -64,7 +64,8 @@ class SslApp (trivup.App):
         # Generate two CA certs, the first one will be unused and the second
         # one will be what everything else is signed with.
         # This allows us to test multi-CA PEMs.
-        self.unused_ca = self.create_ca_cert(self.__class__.__name__ + "_unused")
+        self.unused_ca = self.create_ca_cert(self.__class__.__name__ +
+                                             "_unused")
         self.ca = self.create_ca_cert(self.__class__.__name__)
 
         # Concatenate both PEMs to a single "all_cas" PEM file,
@@ -72,8 +73,8 @@ class SslApp (trivup.App):
         self.all_cas = {'pem': self.mkpath('all_cas.pem')}
         with open(self.all_cas['pem'], 'w') as f:
             for pemfile in [self.unused_ca['pem'], self.ca['pem']]:
-                      with open(pemfile, 'r') as pf:
-                            shutil.copyfileobj(pf, f)
+                with open(pemfile, 'r') as pf:
+                    shutil.copyfileobj(pf, f)
 
     def exec_cmd(self, cmd):
         """ Run command with args, raise exception on failure. """
@@ -216,24 +217,25 @@ yes""" % d
         if through_intermediate:
             self.dbg('Signing key for %s with intermediate cert' % (cn))
             self.exec_cmd('openssl x509 -req -in "%s" -CA "%s" -CAkey "%s" -CAserial "%s" -out "%s"' %  # noqa: E501
-                        (ret['req'], ret['intermediate_pub']['pem'], ret['intermediate_priv']['pem'],
-                        self.ca['srl'], ret['pub']['pem']))
+                          (ret['req'], ret['intermediate_pub']['pem'],
+                           ret['intermediate_priv']['pem'],
+                           self.ca['srl'], ret['pub']['pem']))
             with open(ret['pub']['pem'], 'a') as f:
                 f.write(open(ret['intermediate_pub']['pem']).read())
                 f.write(open(self.ca['pem']).read())
         elif with_ca:
             self.dbg('Signing key for %s with CA cert' % (cn))
             self.exec_cmd('openssl x509 -req -passin "pass:%s" -in "%s" -CA "%s" -CAkey "%s" -CAserial "%s" -out "%s"' %  # noqa: E501
-                        (password,
-                        ret['req'], self.ca['pem'], self.ca['key'],
-                        self.ca['srl'], ret['pub']['pem']))
+                          (password,
+                           ret['req'], self.ca['pem'], self.ca['key'],
+                           self.ca['srl'], ret['pub']['pem']))
             with open(ret['pub']['pem'], 'a') as f:
                 f.write(open(self.ca['pem']).read())
         else:
             self.dbg('Signing key for %s with self' % (cn))
             self.exec_cmd('openssl x509 -req -passin "pass:%s" -in "%s" -signkey "%s" -out "%s"' %  # noqa: E501
-                        (password,
-                        ret['req'], ret['priv']['pem'], ret['pub']['pem']))
+                          (password,
+                           ret['req'], ret['priv']['pem'], ret['pub']['pem']))
 
         self.dbg('Converting public-key X.509 to DER for %s' % cn)
         self.exec_cmd('openssl x509 -outform der -in "%s" -out "%s"' %  # noqa: E501
@@ -253,10 +255,15 @@ yes""" % d
         ssl_cfg = self.mkpath('%s.cnf' % cn)
         password = self.conf.get('ssl_key_pass')
         ret = {
-            'intermediate_priv': {'pem': self.mkpath('%s-intermediate-priv.pem' % cn),
-                                  'der': self.mkpath('%s-intermediate-priv.der' % cn)},
-            'intermediate_pub': {'pem': self.mkpath('%s-intermediate-pub.pem' % cn),
-                                 'der': self.mkpath('%s-intermediate-pub.der' % cn)},
+            'intermediate_priv': {'pem':
+                                  self.mkpath('%s-intermediate-priv.pem' % cn),
+                                  'der':
+                                  self.mkpath('%s-intermediate-priv.der'
+                                              % cn)},
+            'intermediate_pub': {'pem':
+                                 self.mkpath('%s-intermediate-pub.pem' % cn),
+                                 'der':
+                                 self.mkpath('%s-intermediate-pub.der' % cn)},
             'intermediate_req': self.mkpath('%s-intermediate.req' % cn),
         }
 
@@ -272,32 +279,44 @@ yes""" % d
         self.dbg('Generating key for %s intermediate: %s' %
                  (cn, ret['intermediate_priv']['pem']))
         self.exec_cmd('openssl genpkey -algorithm RSA -out "%s"' %  # noqa: E501
-                    (ret['intermediate_priv']['pem']))
+                      (ret['intermediate_priv']['pem']))
         self.dbg('Generating request for %s: %s' %
                  (cn, ret['intermediate_req']))
         self.exec_cmd('openssl req -config "%s" -extensions ext -key "%s" -new -out "%s" -subj "%s"' %  # noqa: E501
-                (ssl_cfg, ret['intermediate_priv']['pem'], ret['intermediate_req'], self.mksubj('%s-intermediate' % (cn))))
+                      (ssl_cfg, ret['intermediate_priv']['pem'],
+                       ret['intermediate_req'],
+                       self.mksubj('%s-intermediate' % (cn))))
 
-        # Work out if "intermediate" cert should be self-signed or actually signed by the CA.
+        # Work out if "intermediate" cert should be self-signed
+        # or actually signed by the CA.
         if with_ca:
             self.dbg('Signing key for %s intermediate with CA cert' % (cn))
             self.exec_cmd('openssl x509 -req -extfile "%s" -extensions ext -passin "pass:%s" -in "%s" -CA "%s" -CAkey "%s" -CAserial "%s" -out "%s"' %  # noqa: E501
-                        (ssl_cfg, password,
-                        ret['intermediate_req'], self.ca['pem'], self.ca['key'],
-                        self.ca['srl'], ret['intermediate_pub']['pem']))
+                          (ssl_cfg, password,
+                           ret['intermediate_req'],
+                           self.ca['pem'],
+                           self.ca['key'],
+                           self.ca['srl'],
+                           ret['intermediate_pub']['pem']))
         else:
             self.dbg('Signing key for %s intermediate with self' % (cn))
             self.exec_cmd('openssl x509 -req -passin "pass:%s" -in "%s" -signkey "%s" -out "%s"' %  # noqa: E501
-                        (password,
-                        ret['intermediate_req'], ret['intermediate_priv']['pem'], ret['intermediate_pub']['pem']))
+                          (password,
+                           ret['intermediate_req'],
+                           ret['intermediate_priv']['pem'],
+                           ret['intermediate_pub']['pem']))
 
         self.dbg('Converting public-key X.509 to DER for %s intermediate' % cn)
         self.exec_cmd('openssl x509 -outform der -in "%s" -out "%s"' %  # noqa: E501
-                    (ret['intermediate_pub']['pem'], ret['intermediate_pub']['der']))
+                      (ret['intermediate_pub']['pem'],
+                       ret['intermediate_pub']['der']))
 
-        self.dbg('Converting private-key X.509 to DER for %s intermediate' % cn)
+        self.dbg('Converting private-key X.509 to DER for %s intermediate' %
+                 cn)
         self.exec_cmd('openssl rsa -outform der -passin "pass:%s" -in "%s" -out "%s"' %  # noqa: E501
-                    (password, ret['intermediate_priv']['pem'], ret['intermediate_priv']['der']))
+                      (password,
+                       ret['intermediate_priv']['pem'],
+                       ret['intermediate_priv']['der']))
 
         return ret
 
@@ -307,9 +326,9 @@ yes""" % d
         self.dbg('Creating PKCS#12 for %s in %s' % (cn, ret['pkcs']))
         self.exec_cmd('openssl pkcs12 -export -descert -out "%s" -inkey "%s" -in "%s"  -passin "pass:%s" -passout "pass:%s"' %  # noqa: E501
                       (ret['pkcs'],
-                      ret['priv']['pem'],
-                      ret['pub']['pem'],
-                      password, password))
+                       ret['priv']['pem'],
+                       ret['pub']['pem'],
+                       password, password))
 
     def operational(self):
         return True

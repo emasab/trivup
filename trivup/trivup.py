@@ -98,7 +98,7 @@ class Cluster (object):
             config property 'name' must have the value of 'value'.
         """
         for app in self.apps:
-            if type(appclass) == str:
+            if type(appclass) is str:
                 if app.__class__.__name__ != appclass:
                     continue
             elif not isinstance(app, appclass):
@@ -326,7 +326,8 @@ class App (object):
         if conf is None:
             self.conf = dict()
         else:
-            self.conf = deepcopy({k:v for k, v in conf.items() if v is not None})
+            self.conf = deepcopy({k: v for k, v in conf.items()
+                                  if v is not None})
 
         self.conf['appid'] = self.appid
         self.conf['name'] = self.name
@@ -391,7 +392,7 @@ class App (object):
     def create_file(self, relpath, unique=False, data=None, pathtype='temp'):
         f, path = self.open_file(relpath, unique=unique, pathtype=pathtype)
         if data is not None:
-            if type(data) == str:
+            if type(data) is str:
                 data = data.encode('ascii')
             f.write(data)
         f.close()
@@ -471,11 +472,11 @@ class App (object):
                     fdlimit, fdlimit, e))
 
         to_close = list()
-        if type(stdout_fd) == str:
+        if type(stdout_fd) is str:
             f = open(stdout_fd, 'a')
             stdout_fd = f.fileno()
             to_close.append(f)
-        if type(stderr_fd) == str:
+        if type(stderr_fd) is str:
             f = open(stderr_fd, 'a')
             stderr_fd = f.fileno()
             to_close.append(f)

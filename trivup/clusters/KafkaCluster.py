@@ -421,7 +421,8 @@ class KafkaCluster(object):
             self.cluster.root_path, self.cluster.instance))
         kc.wait_operational()
 
-        env = self.env.copy()
+        env = dict(os.environ)
+        env.update(self.env)
 
         # Avoids 'dumb' terminal mode
         env['TERM'] = os.environ.get('TERM', 'vt100')

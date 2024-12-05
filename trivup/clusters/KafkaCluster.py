@@ -142,6 +142,7 @@ class KafkaCluster(object):
         if bool(self.conf.get('with_ssl')):
             self.ssl = SslApp(self.cluster, self.conf)
             self.ssl_intermediate_ca = self.conf.get('ssl_intermediate_ca')
+            self.ssl_client_auth = self.conf.get('ssl_client_auth', 'required')
         else:
             self.ssl = None
 
@@ -295,6 +296,7 @@ class KafkaCluster(object):
                 self.env['SSL_unused_ca_{}'.format(k)] = v
 
             self.env['SSL_all_cas_pem'] = self.ssl.all_cas['pem']
+            self.env['SSL_client_auth'] = self.ssl_client_auth
 
             # Set envs for all generated keys so tests can find them.
             for k, v in key.items():

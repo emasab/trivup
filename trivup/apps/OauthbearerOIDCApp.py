@@ -40,6 +40,7 @@ import requests
 
 VALID_SCOPES = ['test', 'test-scope', 'api://1234-abcd/.default']
 
+
 class WebServerHandler(BaseHTTPRequestHandler):
     def __init__(self):
         self._key = None

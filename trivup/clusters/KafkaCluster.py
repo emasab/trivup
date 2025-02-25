@@ -84,6 +84,8 @@ class KafkaCluster(object):
         'sasl_users': 'testuser=testpass',
         # With SSL
         'with_ssl': False,
+        # SSL certificate is signed by an intermediate CA
+        'ssl_intermediate_ca': False,
         # With SchemaRegistry
         'with_sr': False,
         # Debug trivup
@@ -139,6 +141,8 @@ class KafkaCluster(object):
         # Generate SSL certs if enabled
         if bool(self.conf.get('with_ssl')):
             self.ssl = SslApp(self.cluster, self.conf)
+            self.ssl_intermediate_ca = self.conf.get('ssl_intermediate_ca')
+            self.ssl_client_auth = self.conf.get('ssl_client_auth', 'required')
         else:
             self.ssl = None
 
@@ -275,7 +279,10 @@ class KafkaCluster(object):
 
         # Client SSL configuration
         if self.ssl is not None:
-            key = self.ssl.create_cert('client')
+            key = self.ssl.create_cert('client',
+                                       through_intermediate=(
+                                           self.ssl_intermediate_ca
+                                           ))
             self._client_conf['ssl.ca.location'] = self.ssl.ca['pem']
             self._client_conf['ssl.certificate.location'] = key['pub']['pem']
             self._client_conf['ssl.key.location'] = key['priv']['pem']
@@ -289,6 +296,7 @@ class KafkaCluster(object):
                 self.env['SSL_unused_ca_{}'.format(k)] = v
 
             self.env['SSL_all_cas_pem'] = self.ssl.all_cas['pem']
+            self.env['SSL_client_auth'] = self.ssl_client_auth
 
             # Set envs for all generated keys so tests can find them.
             for k, v in key.items():
@@ -413,7 +421,8 @@ class KafkaCluster(object):
             self.cluster.root_path, self.cluster.instance))
         kc.wait_operational()
 
-        env = self.env.copy()
+        env = dict(os.environ)
+        env.update(self.env)
 
         # Avoids 'dumb' terminal mode
         env['TERM'] = os.environ.get('TERM', 'vt100')
@@ -475,6 +484,12 @@ if __name__ == '__main__':
     parser.add_argument('--ssl', dest='ssl', action='store_true',
                         default=KafkaCluster.default_conf['with_ssl'],
                         help='Enable SSL')
+    parser.add_argument('--ssl-intermediate-ca',
+                        dest='ssl_intermediate_ca', action='store_true',
+                        default=KafkaCluster.default_conf[
+                            'ssl_intermediate_ca'],
+                        help=('Use an intermediate CA for '
+                              'generating SSL certificate'))
     parser.add_argument('--sr', dest='sr', action='store_true',
                         default=KafkaCluster.default_conf['with_sr'],
                         help='Enable SchemaRegistry')
@@ -514,6 +529,7 @@ if __name__ == '__main__':
             'cp_version': args.cp_version,
             'sasl_mechanism': args.sasl,
             'with_ssl': args.ssl,
+            'ssl_intermediate_ca': args.ssl_intermediate_ca,
             'with_sr': args.sr,
             'broker_cnt': args.broker_cnt,
             'kafka_path': args.kafka_src,

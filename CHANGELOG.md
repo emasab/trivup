@@ -1,3 +1,8 @@
+# 0.12.9
+
+ * Don't download release archive if it's not a final version (e.g. a release
+   candidate)
+
 # 0.12.8
 
  * Use an intermediate CA by default when enabling SSL.

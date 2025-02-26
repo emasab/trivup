@@ -68,7 +68,7 @@ function kafka_git_clone {
     git clone --branch "$VERSION" --single-branch https://github.com/$OWNER/kafka.git "$KAFKA_DIR"
 }
 
-if [[ $VERSION =~ [1-9][0-9]*\.[0-9]+\.[0-9]+ ]]; then
+if [[ $VERSION =~ ^[1-9][0-9]*\.[0-9]+\.[0-9]+$ ]]; then
     if [[ ! -f "$DEST_DIR/bin/kafka-server-start.sh" ]]; then
 	# Download and install tarball
 	mkdir -p "$DEST_DIR"

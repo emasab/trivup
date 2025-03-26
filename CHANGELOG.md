@@ -1,3 +1,7 @@
+# 0.12.10
+
+ * Added kafka download url related to scala 2.13. Starting kafka v4.0.0, only scala >2.13 is supported.
+
 # 0.12.9
 
  * Don't download release archive if it's not a final version (e.g. a release

@@ -248,7 +248,7 @@ class WebServerHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header('Content-Type', 'application/json')
         self.end_headers()
-        token = self.generate_key_and_token(4)
+        token = self.generate_key_and_token(60)
         self.wfile.write(json.dumps(token, indent=4).encode())
 
     def generate_badformat_token_for_client(self):

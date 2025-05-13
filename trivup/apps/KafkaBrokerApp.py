@@ -342,11 +342,8 @@ class KafkaBrokerApp (trivup.App):
                     # admin'
                     # Change requiredScope to something else to trigger auth
                     # error.
-                    jaas_blob.append('org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required')  # noqa: E501
-                    jaas_blob.append('  unsecuredLoginLifetimeSeconds="3600"')
-                    jaas_blob.append('  unsecuredLoginStringClaim_sub="admin"')
-                    jaas_blob.append('  unsecuredValidatorRequiredScope="requiredScope"')  # noqa: E501
-                    jaas_blob.append(';')
+                    conf_blob.append('listener.name.sasl_plaintext.oauthbearer.sasl.jaas.config=org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required '  # noqa: E501
+                                     'unsecuredLoginStringClaim_sub="admin" unsecuredLoginLifetimeSeconds="3600" unsecuredValidatorRequiredScope="requiredScope";')  # noqa: E501
 
             jaas_blob.append('};\n')
             self.conf['jaas_file'] = self.create_file('jaas_broker.conf',

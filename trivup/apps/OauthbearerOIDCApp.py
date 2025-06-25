@@ -157,6 +157,13 @@ class WebServerHandler(BaseHTTPRequestHandler):
                             'public key is missing')
             return False
 
+        scope = post_data.get('scope', None)
+        if scope is not None and scope[0] not in VALID_SCOPES:
+            self.send_error(400,
+                            'Invalid scope \"%s\", scope should be one of %s' %
+                            (scope[0], VALID_SCOPES))
+            return False
+
         assertion = post_data.get('assertion', None)
         if assertion is None:
             self.send_error(400,
@@ -172,6 +179,7 @@ class WebServerHandler(BaseHTTPRequestHandler):
         except Exception as e:
             self.send_error(400,
                             'Invalid assertion: %s' % str(e))
+
         return False
 
     def valid_post_data(self, post_data, has_authorization=True):

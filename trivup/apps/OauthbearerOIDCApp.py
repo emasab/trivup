@@ -185,8 +185,7 @@ class WebServerHandler(BaseHTTPRequestHandler):
     def valid_post_data(self, post_data, has_authorization=True):
         if post_data is None:
             self.send_error(400,
-                            'grant_type=client_credentials and scope \
-                             fields are required in data')
+                            'grant_type field is required')
             return False
 
         post_data = post_data.decode("utf-8")

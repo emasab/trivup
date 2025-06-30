@@ -39,6 +39,7 @@ import os
 import base64
 import tempfile
 import urllib
+import ssl
 
 VALID_SCOPES = ['test', 'test-scope', 'api://1234-abcd/.default']
 
@@ -286,13 +287,17 @@ class WebServerHandler(BaseHTTPRequestHandler):
 
 
 class OauthbearerOIDCHttpServer():
-    def run_http_server(self, port, client_public_key_path=None):
+    def run_http_server(self, port, client_public_key_path=None, ssl_cert=None, ssl_key=None):
         client_public_key = None
         if client_public_key_path:
             with open(client_public_key_path, 'r') as public_key:
                 client_public_key = public_key.read()
         handler = WebServerHandler(client_public_key)
         server = HTTPServer(('localhost', port), handler)
+        if ssl_cert:
+            context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            context.load_cert_chain(certfile=ssl_cert, keyfile=ssl_key)
+            server.socket = context.wrap_socket(server.socket, server_side=True)
         server.serve_forever()
 
 
@@ -429,10 +434,20 @@ if __name__ == '__main__':
                         required=False,
                         help=('Calls the server and authenticates using'
                               'the private key in environment variables'))
+    parser.add_argument('--ssl-cert', type=str, dest='ssl_cert',
+                        default=None,
+                        required=False,
+                        help=('Path to SSL certificate file for HTTPS '
+                              'server (optional)'))
+    parser.add_argument('--ssl-key', type=str, dest='ssl_key',
+                        default=None,
+                        required=False,
+                        help=('Path to SSL key file for HTTPS server '
+                              '(optional)'))
     args = parser.parse_args()
 
     if args.test_client_authentication:
         client_authentication_test(args.port, args.test_client_authentication)
     else:
         http_server = OauthbearerOIDCHttpServer()
-        http_server.run_http_server(args.port, args.client_public_key)
+        http_server.run_http_server(args.port, args.client_public_key, args.ssl_cert, args.ssl_key)

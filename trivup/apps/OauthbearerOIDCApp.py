@@ -86,7 +86,7 @@ class WebServerHandler(BaseHTTPRequestHandler):
             self._key = key
         self._mutex.release()
 
-    def validate_metadata_authentication_azure(self, parsed_get_data):
+    def validate_metadata_authentication_azure_imds(self, parsed_get_data):
         if 'client_id' not in parsed_get_data:
             self.send_error(400,
                             'client_id field is required in query parameters')
@@ -125,13 +125,14 @@ class WebServerHandler(BaseHTTPRequestHandler):
 
         metadata_authentication_type = \
             parsed_get_data['__metadata_authentication_type'][0]
-        if metadata_authentication_type != 'azure':
+        if metadata_authentication_type != 'azure_imds':
             self.send_error(400,
                             '__metadata_authentication_type is not '
                             'a supported type')
             return False
 
-        return self.validate_metadata_authentication_azure(parsed_get_data)
+        return self.validate_metadata_authentication_azure_imds(
+            parsed_get_data)
 
     def do_GET(self):
         if self.path.endswith("/keys"):
@@ -435,13 +436,13 @@ class OauthbearerOIDCApp (trivup.App):
 
 
 def client_authentication_test_metadata(port, test_client_authentication_type):
-    if test_client_authentication_type != 'metadata_authentication_azure':
+    if test_client_authentication_type != 'metadata_authentication_azure_imds':
         raise Exception('Invalid test_client_authentication_type value: %s' %
                         test_client_authentication_type)
 
     bearer_token = requests.get(
         f'http://localhost:{port}/retrieve',
-        params={'__metadata_authentication_type': 'azure',
+        params={'__metadata_authentication_type': 'azure_imds',
                 'client_id': '1234-abcd',
                 'resource': 'api://1234-abcd',
                 'api-version': '2021-01-01'},
@@ -503,7 +504,7 @@ if __name__ == '__main__':
     parser.add_argument('--test-client-authentication',
                         choices=['private_key_encrypted',
                                  'private_key_plaintext',
-                                 'metadata_authentication_azure'],
+                                 'metadata_authentication_azure_imds'],
                         default=None,
                         required=False,
                         help=('Calls the server and authenticates using'

@@ -1,7 +1,7 @@
 # 0.14.0
 
 * Support for metadata based authentication in OauthbearerOIDCApp.
-  Azure UAMI only in this first version.
+  Azure IMDS only in this first version.
 
 # 0.13.0
 

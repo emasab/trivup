@@ -177,7 +177,8 @@ class WebServerHandler(BaseHTTPRequestHandler):
             'iat': now,
             'iss': "issuer",
             'sub': "subject",
-            'aud': 'api://default'
+            'aud': 'api://default',
+            'client_id': "subject"
         }
         header = {
             "kid": "abcdefg",

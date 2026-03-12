@@ -1,3 +1,7 @@
+# 0.15.0
+
+* Support for multiple sub-claims in OauthbearerOIDCApp JWT response.
+
 # 0.14.0
 
 * Support for metadata based authentication in OauthbearerOIDCApp.
